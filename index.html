@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rossiter 3D Print Lab</title>
+  <link rel="icon" href="/favicon.svg" />
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <div id="header-left">
+        <h1>Rossiter 3D Print Lab</h1>
+      </div>
+      <div id="toolbar">
+        <select id="template-picker">
+          <option value="">-- Load a Template --</option>
+          <option value="rubber-duck">Rubber Duck</option>
+          <option value="name-tag">Name Tag</option>
+          <option value="castle-tower">Castle Tower</option>
+          <option value="rocket-ship">Rocket Ship</option>
+          <option value="cookie-cutter">Cookie Cutter</option>
+        </select>
+        <button id="btn-run" title="Run Code">&#9654; Run</button>
+        <button id="btn-download" title="Download STL">&#11015; Download STL</button>
+      </div>
+    </header>
+    <div id="status-bar">Ready to create!</div>
+    <main id="workspace">
+      <div id="editor-panel"></div>
+      <div id="preview-panel">
+        <canvas id="preview-canvas"></canvas>
+        <div id="build-info">Build area: 180 &times; 180 &times; 180 mm (Bambu A1 Mini)</div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

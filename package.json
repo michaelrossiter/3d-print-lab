@@ -1,0 +1,25 @@
+{
+  "name": "3d-print-lab",
+  "version": "1.0.0",
+  "description": "Browser-based 3D print designer with JSCAD, Three.js preview, and an MCP server for vibe coding with Claude",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "mcp": "node mcp-server.js"
+  },
+  "dependencies": {
+    "@jscad/modeling": "^2.12.2",
+    "@jscad/stl-serializer": "^2.1.17",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0",
+    "codemirror": "^6.0.1",
+    "@codemirror/lang-javascript": "^6.2.2",
+    "@codemirror/theme-one-dark": "^6.1.2"
+  }
+}
