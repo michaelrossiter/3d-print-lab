@@ -67,6 +67,8 @@ export async function runCode(code) {
     const processed = code
       .replace(/import\s+\w+\s+from\s+["'][^"']*jscad[_/]modeling[^"']*["']\s*;?\n?/g, 'const jscad = window.jscad;\n')
       .replace(/import\s*\{[^}]+\}\s*from\s+['"][^'"]*jscad[^'"]*['"]\s*;?\n?/g, '')
+      .replace(/import\s*\{\s*textGeometry\s*\}\s*from\s+['"][^'"]*text-geometry[^'"]*['"]\s*;?\n?/g,
+        'const textGeometry = window.textGeometry;\n')
 
     const blob = new Blob([processed], { type: 'text/javascript' })
     const url = URL.createObjectURL(blob)

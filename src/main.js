@@ -2,12 +2,22 @@ import { createPreview } from './preview.js'
 import { createEditor } from './editor.js'
 import { loadDesign, runCode, setModelUpdateCallback, setStatusCallback, exportCurrentDesign } from './design-loader.js'
 import * as modeling from '@jscad/modeling'
+import { createTextGeometry } from './text-geometry.js'
 import './style.css'
 
 // Expose JSCAD globally for in-editor code evaluation
 window.jscad = modeling
 
 async function init() {
+  // Load font and set up textGeometry global
+  try {
+    const fontResp = await fetch('/fonts/Inter-Bold.ttf')
+    const fontBuffer = await fontResp.arrayBuffer()
+    window.textGeometry = createTextGeometry(fontBuffer, modeling)
+  } catch (e) {
+    console.warn('Failed to load text font:', e)
+  }
+
   // Three.js preview
   const canvas = document.getElementById('preview-canvas')
   const preview = createPreview(canvas)

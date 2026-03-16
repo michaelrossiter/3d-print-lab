@@ -1,14 +1,15 @@
 import jscad from '@jscad/modeling'
+import { textGeometry } from 'text-geometry'
 
-const { cuboid, cylinder, roundedCuboid } = jscad.primitives
+const { cylinder, roundedCuboid } = jscad.primitives
 const { subtract, union } = jscad.booleans
 const { translate } = jscad.transforms
 const { colorize } = jscad.colors
 const { measureBoundingBox } = jscad.measurements
 
 export function main() {
-  // ✏️ Change the name! Each letter is a raised bump.
-  // (JSCAD doesn't have built-in text, so we make a cool patterned tag instead)
+  // Change the name here!
+  const NAME = 'MIKE'
 
   // Main tag body — rounded rectangle
   const tag = roundedCuboid({
@@ -21,23 +22,6 @@ export function main() {
   const hole = translate([25, 0, 0],
     cylinder({ radius: 3, height: 6, segments: 24 })
   )
-
-  // Decorative raised dots spelling pattern (like braille-style name)
-  // Makes a fun bumpy pattern — customize the positions!
-  const dots = []
-  const pattern = [
-    [-20, 0], [-16, 4], [-16, -4], [-12, 0],  // Diamond 1
-    [-4, 4], [-4, -4], [0, 4], [0, -4],         // Square
-    [8, 0], [12, 4], [12, -4], [16, 0],          // Diamond 2
-  ]
-
-  for (const [x, y] of pattern) {
-    dots.push(
-      translate([x, y, 2.5],
-        cylinder({ radius: 1.5, height: 1.5, segments: 16 })
-      )
-    )
-  }
 
   // Border ridge
   const outerRim = roundedCuboid({
@@ -54,8 +38,13 @@ export function main() {
     subtract(outerRim, innerCut)
   )
 
+  // Raised text on the tag face
+  const nameText = translate([0, 0, 4],
+    textGeometry(NAME, { size: 10, height: 1.5 })
+  )
+
   const base = subtract(tag, hole)
-  const nameTag = union(base, border, ...dots)
+  const nameTag = union(base, border, nameText)
 
   // Sit flat on build plate
   const bounds = measureBoundingBox(nameTag)
@@ -66,5 +55,5 @@ export function main() {
 
 export const meta = {
   name: 'Name Tag',
-  description: 'A keychain name tag with a decorative dot pattern!'
+  description: 'A keychain name tag with raised text — edit the NAME variable!'
 }

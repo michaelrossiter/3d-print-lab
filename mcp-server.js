@@ -28,6 +28,11 @@ const jscad = require('@jscad/modeling')
 const stlSerializer = require('@jscad/stl-serializer')
 const { geom3 } = jscad.geometries
 
+// Text geometry: load font and create helper for validation
+import { createTextGeometry } from './src/text-geometry.js'
+const fontBuffer = fs.readFileSync(path.join(__dirname, 'public', 'fonts', 'Inter-Bold.ttf'))
+global.textGeometry = createTextGeometry(fontBuffer.buffer, jscad)
+
 // --- Helpers ---
 
 function validateAndMeasure(code) {
@@ -38,6 +43,8 @@ function validateAndMeasure(code) {
     const cjsCode = code
       .replace(/import\s+jscad\s+from\s+['"]@jscad\/modeling['"]\s*;?\n?/g,
         'const jscad = require("@jscad/modeling");\n')
+      .replace(/import\s*\{\s*textGeometry\s*\}\s*from\s+['"][^'"]*text-geometry[^'"]*['"]\s*;?\n?/g,
+        'const textGeometry = global.textGeometry;\n')
       .replace(/export\s+function\s+main/g, 'module.exports.main = function main')
       .replace(/export\s+const\s+main\s*=/g, 'module.exports.main =')
       .replace(/export\s+const\s+meta/g, 'module.exports.meta')
@@ -140,7 +147,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           code: {
             type: 'string',
-            description: 'Complete JSCAD module code using ESM syntax. MUST use: import jscad from \'@jscad/modeling\' (NOT require). Must export a main() function returning geometry. See the jscad://api-reference resource for the API.'
+            description: 'Complete JSCAD module code using ESM syntax. MUST use: import jscad from \'@jscad/modeling\' (NOT require). Must export a main() function returning geometry. For text, use: import { textGeometry } from \'text-geometry\' then textGeometry(str, { size, height }). See the jscad://api-reference resource for the full API.'
           },
           name: { type: 'string', description: 'Design name (shown in browser status bar)' },
           description: { type: 'string', description: 'Short description of the design' }
@@ -238,6 +245,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       code = `import jscad from '@jscad/modeling'\n\n${converted}`
+    }
+
+    // Auto-add textGeometry import if code uses it but doesn't import it
+    if (code.includes('textGeometry') && !code.includes("from 'text-geometry'") && !code.includes('from "text-geometry"')) {
+      code = `import { textGeometry } from 'text-geometry'\n` + code
     }
 
     // Auto-place model on build plate (Z=0) if code doesn't already handle it
@@ -471,6 +483,39 @@ const onPlate = translate([0, 0, -bounds[0][2]], model)
 return center({ axes: [true, true, false] }, onPlate)
 \`\`\`
 
+## Text Geometry
+Add text to any design using the \`textGeometry\` helper:
+
+\`\`\`javascript
+import { textGeometry } from 'text-geometry'
+\`\`\`
+
+- \`textGeometry(text, options)\` — converts text to solid 3D geometry
+  - \`text\`: the string to render (uses Inter Bold font)
+  - \`options.size\`: cap height in mm (default: 10)
+  - \`options.height\`: extrusion depth in mm (default: 2)
+  - \`options.align\`: 'left' | 'center' | 'right' (default: 'center')
+  - Returns: geom3 — use with translate, colorize, union, subtract, etc.
+
+### Raised text on a surface:
+\`\`\`javascript
+const base = cuboid({ size: [60, 20, 3] })
+const text = translate([0, 0, 3], textGeometry('HELLO', { size: 8, height: 1.5 }))
+return union(base, text)
+\`\`\`
+
+### Engraved / debossed text:
+\`\`\`javascript
+const base = cuboid({ size: [60, 20, 5] })
+const text = translate([0, 0, 3], textGeometry('HELLO', { size: 8, height: 3 }))
+return subtract(base, text)
+\`\`\`
+
+### Text sizing guide:
+- size: 5mm = small label, 8-10mm = readable name tag, 15mm+ = large sign
+- height: 1-2mm for raised text, 2-3mm for engraved text
+- Minimum recommended size: 5mm (smaller may not print cleanly)
+
 ## Tips
 - Use \`segments: 32\` for smooth curves, \`segments: 6\` for hexagons
 - Return an array of geometries for multi-color prints: \`return [colorize([1,0,0], part1), colorize([0,0,1], part2)]\`
@@ -519,7 +564,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         role: 'user',
         content: {
           type: 'text',
-          text: `I want to design a 3D printable object${idea ? `: ${idea}` : ''}.\n\nPlease use the create_design tool to write JSCAD code. Read the jscad://api-reference resource first to understand the API.\n\nCritical rules:\n- Bambu Labs A1 Mini: 180 x 180 x 180 mm build volume\n- All dimensions in mm\n- MUST sit on build plate: use measureBoundingBox() to find min Z, then translate([0, 0, -minZ], model) so the bottom is at Z=0\n- Center on XY with center({ axes: [true, true, false] }, model)\n- Minimum wall thickness: 1.5mm\n- Avoid overhangs > 45° — design with flat bottoms and gradual slopes\n- Keep height < 3x the narrower base dimension for stability`
+          text: `I want to design a 3D printable object${idea ? `: ${idea}` : ''}.\n\nPlease use the create_design tool to write JSCAD code. Read the jscad://api-reference resource first to understand the API.\n\nCritical rules:\n- Bambu Labs A1 Mini: 180 x 180 x 180 mm build volume\n- All dimensions in mm\n- MUST sit on build plate: use measureBoundingBox() to find min Z, then translate([0, 0, -minZ], model) so the bottom is at Z=0\n- Center on XY with center({ axes: [true, true, false] }, model)\n- Minimum wall thickness: 1.5mm\n- Avoid overhangs > 45° — design with flat bottoms and gradual slopes\n- Keep height < 3x the narrower base dimension for stability\n- For text/labels: use import { textGeometry } from 'text-geometry' then textGeometry('text', { size: 10, height: 2 }) — returns solid 3D geometry`
         }
       }]
     }
