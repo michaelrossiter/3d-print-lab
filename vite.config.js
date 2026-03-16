@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 function designWatchPlugin() {
   return {
@@ -39,6 +42,11 @@ function rawSourcePlugin() {
 
 export default defineConfig({
   plugins: [designWatchPlugin(), rawSourcePlugin()],
+  resolve: {
+    alias: {
+      'text-geometry': path.resolve(__dirname, 'src/text-geometry-shim.js')
+    }
+  },
   server: {
     port: 3000,
     open: true

@@ -34,6 +34,7 @@ export function createTextGeometry(fontArrayBuffer, jscad) {
     const size = options.size || 10
     const height = options.height || 2
     const align = options.align || 'center'
+    const segments = options.segments || 32
 
     if (!text || text.length === 0) {
       throw new Error('textGeometry: text string is required')
@@ -58,7 +59,10 @@ export function createTextGeometry(fontArrayBuffer, jscad) {
     }
 
     // Flatten Bezier curves and collect points for each contour
-    const flatContours = contours.map(cmds => flattenContour(cmds, 0.5))
+    // Map segments to flattening tolerance: more segments = tighter tolerance = smoother curves
+    // segments=16 → tol≈1.0, segments=32 → tol≈0.5, segments=64 → tol≈0.25
+    const tolerance = 16 / segments
+    const flatContours = contours.map(cmds => flattenContour(cmds, tolerance))
 
     // Classify contours as outer or hole by signed area
     const classified = flatContours.map(points => ({
@@ -66,19 +70,27 @@ export function createTextGeometry(fontArrayBuffer, jscad) {
       area: signedArea(points),
     }))
 
-    // After Y-flip: outer contours have negative signed area, holes have positive
-    const outers = []
-    const holes = []
-    for (const c of classified) {
-      if (c.area < 0) {
-        outers.push(c)
-      } else if (c.area > 0) {
-        holes.push(c)
+    // Classify contours by containment, not winding (robust across font formats).
+    // A contour is a "hole" if it's contained inside another contour; otherwise it's an outer.
+    const contourData = classified.filter(c => c.area !== 0)
+
+    // For each contour, count how many other contours contain it
+    for (const c of contourData) {
+      c.depth = 0
+      const testPt = c.points[0]
+      for (const other of contourData) {
+        if (other === c) continue
+        if (pointInPolygon(testPt, other.points)) {
+          c.depth++
+        }
       }
-      // area === 0: degenerate, skip
     }
 
-    // Assign each hole to its parent outer contour
+    // Even depth = outer, odd depth = hole (handles nested shapes correctly)
+    const outers = contourData.filter(c => c.depth % 2 === 0)
+    const holes = contourData.filter(c => c.depth % 2 === 1)
+
+    // Assign each hole to its smallest containing outer
     for (const hole of holes) {
       const testPt = hole.points[0]
       let bestOuter = null
@@ -98,9 +110,9 @@ export function createTextGeometry(fontArrayBuffer, jscad) {
     // Build 3D geometry for each outer contour (minus its holes)
     const solids = []
     for (const outer of outers) {
-      // Scale points from font units to mm
-      // Reverse outer points to CCW (geom2 expects CCW for solid faces)
-      const scaledOuter = outer.points.slice().reverse().map(p => [p[0] * scale, p[1] * scale])
+      // Scale to mm; ensure CCW winding for geom2 (reverse if area is negative/CW)
+      let scaledOuter = outer.points.map(p => [p[0] * scale, p[1] * scale])
+      if (outer.area < 0) scaledOuter = scaledOuter.slice().reverse()
 
       if (scaledOuter.length < 3) continue
 
@@ -115,7 +127,9 @@ export function createTextGeometry(fontArrayBuffer, jscad) {
       // Subtract holes
       if (outer.holes) {
         for (const hole of outer.holes) {
-          const scaledHole = hole.points.slice().reverse().map(p => [p[0] * scale, p[1] * scale])
+          // Scale to mm; ensure CCW for geom2 (reverse if CW)
+          let scaledHole = hole.points.map(p => [p[0] * scale, p[1] * scale])
+          if (hole.area < 0) scaledHole = scaledHole.slice().reverse()
           if (scaledHole.length < 3) continue
           try {
             const holeGeom2 = geom2.fromPoints(scaledHole)
